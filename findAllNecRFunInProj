@@ -1,0 +1,80 @@
+#!/usr/bin/Rscript
+
+#######################################################################################################################
+#                                                                                                                     #
+# If you want to reverse engineer which R packages (from the already installed ones) do you really need to load in    #
+# in your project then this tiny script may help you. Just add the root of your R project folder as an argument,      #
+# and it will pick recursively out all the used R functions and their probable package counterparts from the .R files #
+# from the project folder and its subfolders.                                                                         #
+# The results will be displayed only on standard out.                                                                 #
+#                                                                                                                     #
+# usage:        findAllNecRFunInProj <full/URL/to/R_project_folder>                                                   #
+# for instance: findAllNecRFunInProj '~/Projects/SampleProject/'                                                      # 
+#                                                                                                                     #
+#                                                                                                                     #
+# Runs only on linux and requires installed R environment and data.table, NCmisc & knitr packages.                    #
+#                                                                                                                     #
+#######################################################################################################################
+
+# catches folder argument
+RScriptsDir <- commandArgs(TRUE)[[1]]
+
+# define R function&package finder function
+findAllFunInRScript <- function(fileName, installedP) {
+    
+    # list all R function from <fileName> into a vector
+    fncts   <- unname(unlist(NCmisc::list.functions.in.file(fileName, 
+                                                            alphabetic = TRUE)[grep('package', 
+                                                                                    attr(NCmisc::list.functions.in.file(fileName, 
+                                                                                                                        alphabetic = TRUE), 
+                                                                                         'names'))]));
+    # iterate over every function
+    pck     <- sapply(fncts, 
+                      function(f) {
+                        # pick all possibly related packages
+                        hlp    <- help.search(paste0('^', f, '$'), agrep = FALSE);
+                        # retain only those packages which are already installed
+                        hlp    <- base::intersect(hlp$matches[, 'Package'], installedP)
+                        # concatenate packages into one string
+                        return(paste(hlp, collapse = ', ')) });
+    
+    # arrange the function&package pairs into a table
+    pckDT   <- data.table::data.table(`function` = fncts, 
+                                      `package`  = pck);
+    
+    # system info
+    message(fileName, ' is processed');
+    
+    return(pckDT)
+}
+
+# detect base packages
+baseP       <- sessionInfo()$basePkgs
+
+# detect installed packages
+installedP  <- unname(installed.packages(fields = 'Package')[, 1])
+
+# arrange all function-package pairs into a unified table coming from inspection of several .R files in RScriptsDir
+DT          <- unique(data.table::rbindlist(lapply(list.files(RScriptsDir,
+                                                              pattern    = '.R', 
+                                                              recursive  = TRUE, 
+                                                              full.names = TRUE), 
+                                                   function(fileName)
+                                                   findAllFunInRScript(fileName, installedP)), 
+                                            use.names = TRUE, 
+                                            fill      = TRUE))
+
+# print function-package result table to stdout
+print(knitr::kable(DT, 'pandoc'))
+
+# calculate unique detected package list
+detectedP   <- base::setdiff(unique(unlist(strsplit(unclass(DT)[['package']], split = ', '))),
+                             baseP)
+
+# print package lists to stdout
+message('\nbase packages: \n', paste(baseP, collapse = ', '))
+message('\ndetected possible packages: \n', paste(detectedP, collapse = ', '))
+
+# clean memory
+rm(list = ls())
+invisible(gc())
