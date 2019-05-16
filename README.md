@@ -4,8 +4,7 @@ and it will pick recursively out all the used R functions and their probable pac
 from the project folder and its subfolders.
 The results will be displayed only on standard out.
 
-usage:        findAllNecRFunInProj <full/URL/to/R_project_folder>
-
-for instance: findAllNecRFunInProj '~/Projects/SampleProject/'
+#### usage:         findAllNecRFunInProj <full/URL/to/R_project_folder>
+#### for instance:  findAllNecRFunInProj '~/Projects/SampleProject/'
 
 Runs only on linux and requires installed R environment and data.table, NCmisc & knitr packages.
